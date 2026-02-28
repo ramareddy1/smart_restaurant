@@ -1,4 +1,11 @@
 import { prisma } from "@/lib/db";
+import {
+  STOCK_OVERSTOCK_MULTIPLIER,
+  STOCK_CRITICAL_MULTIPLIER,
+  EXPIRY_WARNING_MS,
+  TRANSACTION_LOOKBACK_MS,
+  WASTE_RATIO_THRESHOLD,
+} from "@/lib/constants";
 
 interface AlertCandidate {
   type: "LOW_STOCK" | "EXPIRING" | "OVERSTOCK";
@@ -18,7 +25,7 @@ export async function runRuleEngine(ingredientIds?: string[]) {
 
   for (const ing of ingredients) {
     // RULE 1: Critical stock (< 50% of par)
-    if (ing.currentStock < ing.parLevel * 0.5) {
+    if (ing.currentStock < ing.parLevel * STOCK_CRITICAL_MULTIPLIER) {
       candidates.push({
         type: "LOW_STOCK",
         severity: "CRITICAL",
@@ -51,7 +58,7 @@ export async function runRuleEngine(ingredientIds?: string[]) {
     // RULE 4: Expiring soon (within 3 days)
     else if (
       ing.expirationDate &&
-      ing.expirationDate <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+      ing.expirationDate <= new Date(Date.now() + EXPIRY_WARNING_MS)
     ) {
       candidates.push({
         type: "EXPIRING",
@@ -63,7 +70,7 @@ export async function runRuleEngine(ingredientIds?: string[]) {
     }
 
     // RULE 5: Overstock (> 3x par)
-    if (ing.currentStock > ing.parLevel * 3) {
+    if (ing.currentStock > ing.parLevel * STOCK_OVERSTOCK_MULTIPLIER) {
       candidates.push({
         type: "OVERSTOCK",
         severity: "INFO",
@@ -75,7 +82,7 @@ export async function runRuleEngine(ingredientIds?: string[]) {
   }
 
   // RULE 6: High waste ratio
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(Date.now() - TRANSACTION_LOOKBACK_MS);
   const wasteStats = await prisma.transaction.groupBy({
     by: ["ingredientId", "type"],
     where: {
@@ -98,7 +105,7 @@ export async function runRuleEngine(ingredientIds?: string[]) {
   }
 
   for (const [ingredientId, stats] of statsByIngredient) {
-    if (stats.purchase > 0 && stats.waste / stats.purchase > 0.2) {
+    if (stats.purchase > 0 && stats.waste / stats.purchase > WASTE_RATIO_THRESHOLD) {
       const ing = ingredients.find((i) => i.id === ingredientId);
       candidates.push({
         type: "LOW_STOCK",
@@ -110,22 +117,31 @@ export async function runRuleEngine(ingredientIds?: string[]) {
     }
   }
 
-  // Deduplicate: don't create alert if identical active one exists
-  let created = 0;
-  for (const candidate of candidates) {
-    const existing = await prisma.alert.findFirst({
-      where: {
-        type: candidate.type,
-        ingredientId: candidate.ingredientId,
-        isRead: false,
-        isDismissed: false,
-      },
-    });
-    if (!existing) {
-      await prisma.alert.create({ data: candidate });
-      created++;
-    }
+  // Deduplicate: batch-fetch existing active alerts instead of N+1 sequential queries
+  const candidateIngredientIds = [...new Set(candidates.map((c) => c.ingredientId))];
+
+  const existingAlerts = candidateIngredientIds.length > 0
+    ? await prisma.alert.findMany({
+        where: {
+          ingredientId: { in: candidateIngredientIds },
+          isRead: false,
+          isDismissed: false,
+        },
+        select: { type: true, ingredientId: true },
+      })
+    : [];
+
+  const existingSet = new Set(
+    existingAlerts.map((a) => `${a.type}:${a.ingredientId}`)
+  );
+
+  const newCandidates = candidates.filter(
+    (c) => !existingSet.has(`${c.type}:${c.ingredientId}`)
+  );
+
+  if (newCandidates.length > 0) {
+    await prisma.alert.createMany({ data: newCandidates });
   }
 
-  return created;
+  return newCandidates.length;
 }

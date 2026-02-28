@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMenuItems } from "@/hooks/use-menu-items";
+import { useMenuItems } from "@/hooks/use-menus";
 import { formatCurrency } from "@/lib/format";
 import { MENU_ITEM_CATEGORIES } from "@/lib/constants";
 
@@ -59,11 +59,15 @@ interface MenuItem {
 
 export default function MenuItemsPage() {
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [category, setCategory] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const router = useRouter();
 
-  const { menuItems, isLoading, mutate } = useMenuItems();
+  const { menuItems, isLoading, mutate } = useMenuItems({
+    search: deferredSearch || undefined,
+    category: category || undefined,
+  });
 
   const handleDelete = async (id: string, name: string) => {
     try {
@@ -166,19 +170,8 @@ export default function MenuItemsPage() {
     },
   ];
 
-  // Client-side filtering
-  const filteredItems = menuItems.filter((item: MenuItem) => {
-    const matchesSearch = search
-      ? item.name.toLowerCase().includes(search.toLowerCase())
-      : true;
-    const matchesCategory = category
-      ? item.category === category
-      : true;
-    return matchesSearch && matchesCategory;
-  });
-
   const table = useReactTable({
-    data: filteredItems,
+    data: menuItems,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -225,7 +218,7 @@ export default function MenuItemsPage() {
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : menuItems.length === 0 ? (
         <EmptyState
           title="No menu items found"
           description="Get started by adding your first menu item"

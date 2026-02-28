@@ -1,7 +1,7 @@
 "use client";
 
 import { use } from "react";
-import { useMenuItem } from "@/hooks/use-menu-items";
+import { useMenuItem } from "@/hooks/use-menus";
 import { MenuItemForm } from "@/components/menu-items/menu-item-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { Skeleton } from "@/components/ui/skeleton";

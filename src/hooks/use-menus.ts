@@ -55,6 +55,11 @@ export function useMenuItems(params?: { search?: string; category?: string }) {
   };
 }
 
+export function useMenuItem(id: string) {
+  const { data, error, isLoading } = useSWR(`/api/menu-items/${id}`, fetcher);
+  return { menuItem: data, isLoading, error };
+}
+
 export function useAllMenuItems() {
   const { data, error, isLoading } = useSWR("/api/menu-items?pageSize=1000", fetcher);
 

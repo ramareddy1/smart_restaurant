@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { ArrowUpDown, MoreHorizontal, Plus, Trash2, Pencil } from "lucide-react"
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,15 +48,15 @@ interface Supplier {
 
 export default function SuppliersPage() {
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sorting, setSorting] = useState<SortingState>([]);
   const router = useRouter();
 
   const { suppliers, isLoading, mutate } = useSuppliers({
-    search: search || undefined,
+    search: deferredSearch || undefined,
   });
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
     try {
       const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
@@ -119,12 +120,18 @@ export default function SuppliersPage() {
             >
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => handleDelete(row.original.id, row.original.name)}
+            <ConfirmDialog
+              title={`Delete "${row.original.name}"?`}
+              description="This action cannot be undone. This will permanently delete this supplier."
+              onConfirm={() => handleDelete(row.original.id, row.original.name)}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={(e) => e.preventDefault()}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </ConfirmDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       ),

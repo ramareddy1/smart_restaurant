@@ -13,8 +13,14 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Lazy getter — avoids calling getDatabaseUrl() at import time so
+// Next.js can collect page data during build without DATABASE_URL.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop: string | symbol) {
+    const client = globalForPrisma.prisma ?? createPrismaClient();
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = client;
+    }
+    return Reflect.get(client, prop);
+  },
+});
