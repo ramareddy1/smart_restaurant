@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── SUPPLIER ───────────────────────────────────────────────
+
+model Supplier {
+  id           String        @id @default(cuid())
+  name         String
+  contactEmail String?       @map("contact_email")
+  contactPhone String?       @map("contact_phone")
+  address      String?
+  notes        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  ingredients  Ingredient[]
+  transactions Transaction[]
+
+  @@map("suppliers")
+}
+
+// ─── INGREDIENT ─────────────────────────────────────────────
+
+model Ingredient {
+  id             String    @id @default(cuid())
+  name           String
+  category       String
+  unit           String
+  currentStock   Float     @default(0) @map("current_stock")
+  parLevel       Float     @map("par_level")
+  costPerUnit    Float     @map("cost_per_unit")
+  expirationDate DateTime? @map("expiration_date")
+  supplierId     String?   @map("supplier_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  supplier          Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients RecipeIngredient[]
+  transactions      Transaction[]
+  alerts            Alert[]
+
+  @@map("ingredients")
+}
+
+// ─── RECIPE ─────────────────────────────────────────────────
+
+model Recipe {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  category      String?
+  yieldQuantity Float    @default(1) @map("yield_quantity")
+  yieldUnit     String   @default("serving") @map("yield_unit")
+  instructions  String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  ingredients RecipeIngredient[]
+  menuItems   MenuItem[]
+
+  @@map("recipes")
+}
+
+// ─── RECIPE INGREDIENT (join table) ─────────────────────────
+
+model RecipeIngredient {
+  id           String @id @default(cuid())
+  recipeId     String @map("recipe_id")
+  ingredientId String @map("ingredient_id")
+  quantity     Float
+  unit         String
+
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, ingredientId])
+  @@map("recipe_ingredients")
+}
+
+// ─── MENU ITEM ──────────────────────────────────────────────
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  category    String?
+  recipeId    String?  @map("recipe_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  recipe Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  menus  MenuMenuItem[]
+
+  @@map("menu_items")
+}
+
+// ─── MENU ───────────────────────────────────────────────────
+
+model Menu {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  items MenuMenuItem[]
+
+  @@map("menus")
+}
+
+// ─── MENU <-> MENU ITEM (join table) ────────────────────────
+
+model MenuMenuItem {
+  menuId     String @map("menu_id")
+  menuItemId String @map("menu_item_id")
+
+  menu     Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@id([menuId, menuItemId])
+  @@map("menu_menu_items")
+}
+
+// ─── TRANSACTION ────────────────────────────────────────────
+
+enum TransactionType {
+  PURCHASE
+  USAGE
+  WASTE
+  ADJUSTMENT
+}
+
+model Transaction {
+  id           String          @id @default(cuid())
+  type         TransactionType
+  ingredientId String          @map("ingredient_id")
+  quantity     Float
+  unitCost     Float?          @map("unit_cost")
+  totalCost    Float?          @map("total_cost")
+  supplierId   String?         @map("supplier_id")
+  notes        String?
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  supplier   Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([ingredientId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+// ─── ALERT ──────────────────────────────────────────────────
+
+enum AlertType {
+  LOW_STOCK
+  EXPIRING
+  OVERSTOCK
+  AI_RECOMMENDATION
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  type         AlertType
+  severity     AlertSeverity
+  title        String
+  message      String
+  ingredientId String?       @map("ingredient_id")
+  isRead       Boolean       @default(false) @map("is_read")
+  isDismissed  Boolean       @default(false) @map("is_dismissed")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  ingredient Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("alerts")
+}
