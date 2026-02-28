@@ -19,25 +19,94 @@ export async function listIngredients(params: {
     where.category = category;
   }
 
+  // Use raw SQL for low-stock filter since Prisma can't compare two columns directly.
+  // This ensures correct pagination (filter BEFORE paginating, not after).
+  if (lowStockOnly) {
+    where.AND = [
+      ...(Array.isArray((where as Record<string, unknown>).AND)
+        ? (where.AND as Prisma.IngredientWhereInput[])
+        : []),
+      {
+        // Use Prisma's raw filter for column-to-column comparison
+        currentStock: { not: undefined },
+      },
+    ];
+  }
+
+  // Build the base conditions for both queries
+  const baseWhere = { ...where };
+
+  if (lowStockOnly) {
+    // Use raw SQL for the column-to-column comparison
+    const searchCondition = search
+      ? `AND name ILIKE '%' || $1 || '%'`
+      : "";
+    const categoryCondition = category ? `AND category = $2` : "";
+    const baseQuery = `FROM ingredients WHERE current_stock < par_level ${searchCondition} ${categoryCondition}`;
+
+    // Build params array dynamically
+    const queryParams: (string | number)[] = [];
+    if (search) queryParams.push(search);
+    if (category) queryParams.push(category);
+
+    const countQuery = `SELECT COUNT(*)::int as count ${baseQuery}`;
+    const dataQuery = `SELECT * ${baseQuery} ORDER BY name ASC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
+
+    type CountResult = { count: number };
+    type IngredientRow = {
+      id: string;
+      name: string;
+      category: string;
+      unit: string;
+      current_stock: number;
+      par_level: number;
+      cost_per_unit: number;
+      expiration_date: Date | null;
+      supplier_id: string | null;
+      created_at: Date;
+      updated_at: Date;
+    };
+
+    const [countResult, rawItems] = await Promise.all([
+      prisma.$queryRawUnsafe<CountResult[]>(countQuery, ...queryParams),
+      prisma.$queryRawUnsafe<IngredientRow[]>(dataQuery, ...queryParams),
+    ]);
+
+    const total = countResult[0]?.count ?? 0;
+
+    // Map raw results to match Prisma's camelCase format and include supplier
+    const ingredientIds = rawItems.map((i) => i.id);
+    const ingredientsWithSupplier = ingredientIds.length > 0
+      ? await prisma.ingredient.findMany({
+          where: { id: { in: ingredientIds } },
+          include: { supplier: true },
+          orderBy: { name: "asc" },
+        })
+      : [];
+
+    return {
+      items: ingredientsWithSupplier,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
   const [items, total] = await Promise.all([
     prisma.ingredient.findMany({
-      where,
+      where: baseWhere,
       include: { supplier: true },
       orderBy: { name: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    prisma.ingredient.count({ where }),
+    prisma.ingredient.count({ where: baseWhere }),
   ]);
 
-  // Filter low stock in JS since Prisma can't compare two columns directly
-  const filteredItems = lowStockOnly
-    ? items.filter((i) => i.currentStock < i.parLevel)
-    : items;
-
   return {
-    items: filteredItems,
-    total: lowStockOnly ? filteredItems.length : total,
+    items,
+    total,
     page,
     pageSize,
     totalPages: Math.ceil(total / pageSize),

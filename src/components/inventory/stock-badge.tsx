@@ -1,6 +1,10 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  STOCK_OVERSTOCK_MULTIPLIER,
+  STOCK_CRITICAL_MULTIPLIER,
+} from "@/lib/constants";
 
 interface StockBadgeProps {
   currentStock: number;
@@ -8,7 +12,7 @@ interface StockBadgeProps {
 }
 
 export function StockBadge({ currentStock, parLevel }: StockBadgeProps) {
-  if (currentStock > parLevel * 3) {
+  if (currentStock > parLevel * STOCK_OVERSTOCK_MULTIPLIER) {
     return (
       <Badge variant="secondary" className="bg-purple-100 text-purple-800">
         Overstock
@@ -22,7 +26,7 @@ export function StockBadge({ currentStock, parLevel }: StockBadgeProps) {
       </Badge>
     );
   }
-  if (currentStock >= parLevel * 0.5) {
+  if (currentStock >= parLevel * STOCK_CRITICAL_MULTIPLIER) {
     return (
       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
         Low

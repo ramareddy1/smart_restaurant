@@ -44,6 +44,10 @@ model Ingredient {
   transactions      Transaction[]
   alerts            Alert[]
 
+  @@index([name])
+  @@index([category])
+  @@index([expirationDate])
+  @@index([supplierId])
   @@map("ingredients")
 }
 
@@ -186,6 +190,7 @@ model Alert {
 
   @@index([type])
   @@index([isRead])
+  @@index([isRead, isDismissed])
   @@index([createdAt])
   @@map("alerts")
 }

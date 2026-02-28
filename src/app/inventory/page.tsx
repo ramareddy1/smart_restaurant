@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { ArrowUpDown, MoreHorizontal, Plus, Trash2, Pencil } from "lucide-react"
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StockBadge } from "@/components/inventory/stock-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +46,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { INGREDIENT_CATEGORIES } from "@/lib/constants";
+import { INGREDIENT_CATEGORIES, EXPIRY_WARNING_MS } from "@/lib/constants";
 
 interface Ingredient {
   id: string;
@@ -61,17 +62,17 @@ interface Ingredient {
 
 export default function InventoryPage() {
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [category, setCategory] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const router = useRouter();
 
   const { ingredients, isLoading, mutate } = useIngredients({
-    search: search || undefined,
+    search: deferredSearch || undefined,
     category: category || undefined,
   });
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
     try {
       const res = await fetch(`/api/ingredients/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
@@ -158,7 +159,7 @@ export default function InventoryPage() {
         const d = new Date(date);
         const isExpired = d < new Date();
         const isExpiringSoon =
-          d < new Date(Date.now() + 3 * 86400000) && !isExpired;
+          d < new Date(Date.now() + EXPIRY_WARNING_MS) && !isExpired;
         return (
           <span
             className={
@@ -189,12 +190,18 @@ export default function InventoryPage() {
             >
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => handleDelete(row.original.id, row.original.name)}
+            <ConfirmDialog
+              title={`Delete "${row.original.name}"?`}
+              description="This action cannot be undone. This will permanently delete this ingredient."
+              onConfirm={() => handleDelete(row.original.id, row.original.name)}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={(e) => e.preventDefault()}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </ConfirmDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       ),

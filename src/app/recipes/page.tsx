@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { ArrowUpDown, MoreHorizontal, Plus, Trash2, Pencil } from "lucide-react"
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -43,14 +44,14 @@ interface Recipe {
 
 export default function RecipesPage() {
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [sorting, setSorting] = useState<SortingState>([]);
   const router = useRouter();
   const { recipes, isLoading, mutate } = useRecipes({
-    search: search || undefined,
+    search: deferredSearch || undefined,
   });
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete recipe "${name}"?`)) return;
     try {
       const res = await fetch(`/api/recipes/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
@@ -121,9 +122,18 @@ export default function RecipesPage() {
             <DropdownMenuItem onClick={() => router.push(`/recipes/${row.original.id}`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(row.original.id, row.original.name)}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            <ConfirmDialog
+              title={`Delete "${row.original.name}"?`}
+              description="This action cannot be undone. This will permanently delete this recipe."
+              onConfirm={() => handleDelete(row.original.id, row.original.name)}
+            >
+              <DropdownMenuItem
+                className="text-destructive"
+                onSelect={(e) => e.preventDefault()}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </ConfirmDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       ),

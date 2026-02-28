@@ -1,14 +1,21 @@
 import { prisma } from "@/lib/db";
+import { TRANSACTION_LOOKBACK_MS, MAX_AI_CONTEXT_LENGTH } from "@/lib/constants";
 
 export async function buildAnalysisContext(): Promise<string> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(Date.now() - TRANSACTION_LOOKBACK_MS);
 
+  // Limit query sizes to control AI context size and cost
   const [ingredients, transactions, menuItems] = await Promise.all([
-    prisma.ingredient.findMany({ include: { supplier: true } }),
+    prisma.ingredient.findMany({
+      include: { supplier: true },
+      take: 200,
+      orderBy: { name: "asc" },
+    }),
     prisma.transaction.findMany({
       where: { createdAt: { gte: thirtyDaysAgo } },
       include: { ingredient: true },
       orderBy: { createdAt: "asc" },
+      take: 500,
     }),
     prisma.menuItem.findMany({
       where: { isActive: true },
@@ -19,6 +26,7 @@ export async function buildAnalysisContext(): Promise<string> {
           },
         },
       },
+      take: 100,
     }),
   ]);
 
@@ -78,6 +86,13 @@ export async function buildAnalysisContext(): Promise<string> {
     } else {
       context += `- ${item.name}: price=$${item.price}, cost=N/A (no recipe linked)\n`;
     }
+  }
+
+  // Cap context size to control AI API token costs
+  if (context.length > MAX_AI_CONTEXT_LENGTH) {
+    context =
+      context.slice(0, MAX_AI_CONTEXT_LENGTH) +
+      "\n\n[...context truncated to stay within token limits]";
   }
 
   return context;
