@@ -1,14 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropicApiKey } from "@/lib/env";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+let _anthropic: Anthropic | undefined;
+
+function getClient() {
+  if (!_anthropic) {
+    _anthropic = new Anthropic({ apiKey: getAnthropicApiKey() });
+  }
+  return _anthropic;
+}
 
 export async function analyzeWithLLM(
   systemPrompt: string,
   userMessage: string
 ): Promise<string> {
-  const response = await anthropic.messages.create({
+  const response = await getClient().messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 2000,
     system: systemPrompt,
