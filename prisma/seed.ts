@@ -8,7 +8,8 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // Clean existing data
+  // Clean existing data (order matters for FK constraints)
+  await prisma.session.deleteMany();
   await prisma.menuMenuItem.deleteMany();
   await prisma.recipeIngredient.deleteMany();
   await prisma.alert.deleteMany();
@@ -18,6 +19,83 @@ async function main() {
   await prisma.recipe.deleteMany();
   await prisma.ingredient.deleteMany();
   await prisma.supplier.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.restaurantSettings.deleteMany();
+  await prisma.restaurant.deleteMany();
+
+  // ─── Restaurant ───────────────────────────
+
+  const restaurant = await prisma.restaurant.create({
+    data: {
+      name: "Bella Vista",
+      address: "742 Evergreen Terrace, Springfield, IL 62704",
+      phone: "555-0100",
+      timezone: "America/Chicago",
+    },
+  });
+
+  await prisma.restaurantSettings.create({
+    data: {
+      restaurantId: restaurant.id,
+      targetFoodCost: 0.30,
+      targetLaborCost: 0.28,
+      currency: "USD",
+      fiscalYearStart: 1,
+    },
+  });
+
+  // ─── Staff (5 users — one per role) ───────
+
+  const users = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: "owner@bellavista.com",
+        name: "Maria Santos",
+        role: "OWNER",
+        pin: "0000",
+        restaurantId: restaurant.id,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "kitchen@bellavista.com",
+        name: "James Park",
+        role: "KITCHEN_MANAGER",
+        pin: "1111",
+        restaurantId: restaurant.id,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "chef@bellavista.com",
+        name: "Sophie Laurent",
+        role: "HEAD_CHEF",
+        pin: "2222",
+        restaurantId: restaurant.id,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "server@bellavista.com",
+        name: "Alex Rivera",
+        role: "SERVER",
+        pin: "3333",
+        restaurantId: restaurant.id,
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: "host@bellavista.com",
+        name: "Taylor Kim",
+        role: "HOST",
+        pin: "4444",
+        restaurantId: restaurant.id,
+      },
+    }),
+  ]);
+
+  console.log(`  Restaurant: ${restaurant.name} (${restaurant.id})`);
+  console.log(`  Users: ${users.length} staff members created`);
 
   // ─── Suppliers ──────────────────────────
 
@@ -436,13 +514,21 @@ async function main() {
     ],
   });
 
-  console.log("Seed completed successfully!");
+  console.log("\nSeed completed successfully!");
+  console.log(`  Restaurant: 1 (${restaurant.name})`);
+  console.log(`  Users: ${users.length}`);
   console.log(`  Suppliers: ${suppliers.length}`);
   console.log(`  Ingredients: ${ingredients.length}`);
   console.log(`  Recipes: ${recipes.length}`);
   console.log(`  Menu Items: ${menuItems.length}`);
   console.log(`  Transactions: ${transactionData.length}`);
-  console.log(`  Alerts: 5`);
+  console.log(`  Alerts: 4`);
+  console.log("\n  Login credentials:");
+  console.log("  owner@bellavista.com (PIN: 0000) — Owner");
+  console.log("  kitchen@bellavista.com (PIN: 1111) — Kitchen Manager");
+  console.log("  chef@bellavista.com (PIN: 2222) — Head Chef");
+  console.log("  server@bellavista.com (PIN: 3333) — Server");
+  console.log("  host@bellavista.com (PIN: 4444) — Host");
 }
 
 main()

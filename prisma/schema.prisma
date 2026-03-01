@@ -7,6 +7,83 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── USER ROLES ───────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  KITCHEN_MANAGER
+  HEAD_CHEF
+  SERVER
+  HOST
+}
+
+// ─── RESTAURANT ───────────────────────────────────────────────
+
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  timezone  String   @default("America/New_York")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users    User[]
+  settings RestaurantSettings?
+
+  @@map("restaurants")
+}
+
+model RestaurantSettings {
+  id              String @id @default(cuid())
+  restaurantId    String @unique @map("restaurant_id")
+  targetFoodCost  Float  @default(0.30) @map("target_food_cost")
+  targetLaborCost Float  @default(0.28) @map("target_labor_cost")
+  currency        String @default("USD")
+  fiscalYearStart Int    @default(1) @map("fiscal_year_start")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_settings")
+}
+
+// ─── USER ─────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  role         UserRole
+  pin          String?
+  restaurantId String    @map("restaurant_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  sessions   Session[]
+
+  @@index([email])
+  @@index([restaurantId])
+  @@index([role])
+  @@map("users")
+}
+
+// ─── SESSION ──────────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
 // ─── SUPPLIER ───────────────────────────────────────────────
 
 model Supplier {
