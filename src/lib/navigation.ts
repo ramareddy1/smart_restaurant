@@ -14,6 +14,7 @@ import {
   BarChart3,
   Egg,
   Calendar,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@generated/prisma";
@@ -113,6 +114,30 @@ const kitchenDashboard: NavItem = {
   icon: Egg,
 };
 
+const chefDashboard: NavItem = {
+  title: "Chef Dashboard",
+  href: "/chef",
+  icon: ChefHat,
+};
+
+const allergens: NavItem = {
+  title: "Allergens",
+  href: "/allergens",
+  icon: ShieldAlert,
+};
+
+const menuEngineering: NavItem = {
+  title: "Menu Engineering",
+  href: "/menu-engineering",
+  icon: BarChart3,
+};
+
+const prepPlanning: NavItem = {
+  title: "Prep Planning",
+  href: "/prep",
+  icon: Calendar,
+};
+
 // ─── Per-role navigation configs ────────────────────────────────
 
 // Owner sees everything — they're the "single pane of glass" persona
@@ -128,6 +153,10 @@ const ownerNav: NavGroup[] = [
   {
     label: "Purchasing",
     items: [kitchenDashboard, purchaseOrders, wasteLog, supplierPerf],
+  },
+  {
+    label: "Chef Tools",
+    items: [chefDashboard, allergens, menuEngineering, prepPlanning],
   },
   {
     label: "System",
@@ -155,15 +184,15 @@ const kitchenManagerNav: NavGroup[] = [
   },
 ];
 
-// Head Chef: recipe & menu-focused
+// Head Chef: recipe & menu-focused with allergens, engineering, prep
 const headChefNav: NavGroup[] = [
   {
     label: "Overview",
-    items: [dashboard],
+    items: [dashboard, chefDashboard],
   },
   {
     label: "Kitchen",
-    items: [recipes, menuItems, menus, inventory],
+    items: [recipes, menuItems, menus, allergens, menuEngineering, prepPlanning, inventory],
   },
   {
     label: "System",

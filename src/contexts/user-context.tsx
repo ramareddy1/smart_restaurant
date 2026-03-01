@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser, type AuthUser } from "@/hooks/use-auth";
 
 interface UserContextValue {
@@ -16,7 +17,16 @@ const UserContext = createContext<UserContextValue>({
 });
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const { user, isLoading, mutate } = useCurrentUser();
+  const { user, isLoading, isError, mutate } = useCurrentUser();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Redirect to login when session is invalid (not loading, no user)
+  useEffect(() => {
+    if (!isLoading && !user && isError) {
+      router.push(`/login?from=${encodeURIComponent(pathname)}`);
+    }
+  }, [isLoading, user, isError, router, pathname]);
 
   return (
     <UserContext.Provider value={{ user, isLoading, mutate }}>

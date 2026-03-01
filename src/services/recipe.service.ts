@@ -45,6 +45,9 @@ export async function createRecipe(data: {
   yieldQuantity?: number;
   yieldUnit?: string;
   instructions?: string | null;
+  prepTimeMin?: number | null;
+  cookTimeMin?: number | null;
+  difficultyLevel?: string | null;
   ingredients: Array<{ ingredientId: string; quantity: number; unit: string }>;
 }) {
   const { ingredients, ...recipeData } = data;
@@ -73,6 +76,9 @@ export async function updateRecipe(
     yieldQuantity?: number;
     yieldUnit?: string;
     instructions?: string | null;
+    prepTimeMin?: number | null;
+    cookTimeMin?: number | null;
+    difficultyLevel?: string | null;
     ingredients?: Array<{ ingredientId: string; quantity: number; unit: string }>;
   }
 ) {
@@ -106,4 +112,66 @@ export async function updateRecipe(
 
 export async function deleteRecipe(id: string) {
   return prisma.recipe.delete({ where: { id } });
+}
+
+// ─── Recipe Cost Calculation ─────────────────────
+
+export interface RecipeCostLineItem {
+  ingredientId: string;
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+  costPerUnit: number;
+  lineCost: number;
+}
+
+export interface RecipeCostResult {
+  recipeId: string;
+  recipeName: string;
+  yieldQuantity: number;
+  yieldUnit: string;
+  totalCost: number;
+  costPerServing: number;
+  lineItems: RecipeCostLineItem[];
+}
+
+export async function computeRecipeCost(
+  recipeId: string
+): Promise<RecipeCostResult | null> {
+  const recipe = await prisma.recipe.findUnique({
+    where: { id: recipeId },
+    include: {
+      ingredients: {
+        include: { ingredient: true },
+      },
+    },
+  });
+
+  if (!recipe) return null;
+
+  const lineItems: RecipeCostLineItem[] = recipe.ingredients.map((ri) => {
+    const lineCost = ri.quantity * ri.ingredient.costPerUnit;
+    return {
+      ingredientId: ri.ingredient.id,
+      ingredientName: ri.ingredient.name,
+      quantity: ri.quantity,
+      unit: ri.unit,
+      costPerUnit: ri.ingredient.costPerUnit,
+      lineCost: Math.round(lineCost * 100) / 100,
+    };
+  });
+
+  const totalCost = lineItems.reduce((sum, li) => sum + li.lineCost, 0);
+  const costPerServing =
+    recipe.yieldQuantity > 0 ? totalCost / recipe.yieldQuantity : totalCost;
+
+  return {
+    recipeId: recipe.id,
+    recipeName: recipe.name,
+    yieldQuantity: recipe.yieldQuantity,
+    yieldUnit: recipe.yieldUnit,
+    totalCost: Math.round(totalCost * 100) / 100,
+    costPerServing: Math.round(costPerServing * 100) / 100,
+    lineItems,
+  };
 }

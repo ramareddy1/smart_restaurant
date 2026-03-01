@@ -63,6 +63,7 @@ model User {
   sessions        Session[]
   purchaseOrders  PurchaseOrder[] @relation("PO_CreatedBy")
   receivings      Receiving[]     @relation("Receiving_ReceivedBy")
+  prepTasks       PrepTask[]      @relation("PrepTask_AssignedTo")
 
   @@index([email])
   @@index([restaurantId])
@@ -125,6 +126,7 @@ model Ingredient {
   alerts             Alert[]
   purchaseOrderItems PurchaseOrderItem[]
   receivingItems     ReceivingItem[]
+  allergens          IngredientAllergen[]
 
   @@index([name])
   @@index([category])
@@ -136,18 +138,22 @@ model Ingredient {
 // ─── RECIPE ─────────────────────────────────────────────────
 
 model Recipe {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
-  category      String?
-  yieldQuantity Float    @default(1) @map("yield_quantity")
-  yieldUnit     String   @default("serving") @map("yield_unit")
-  instructions  String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  category        String?
+  yieldQuantity   Float    @default(1) @map("yield_quantity")
+  yieldUnit       String   @default("serving") @map("yield_unit")
+  instructions    String?
+  prepTimeMin     Int?     @map("prep_time_min")
+  cookTimeMin     Int?     @map("cook_time_min")
+  difficultyLevel String?  @map("difficulty_level")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   ingredients RecipeIngredient[]
   menuItems   MenuItem[]
+  prepTasks   PrepTask[]
 
   @@map("recipes")
 }
@@ -369,4 +375,57 @@ model ReceivingItem {
 
   @@index([ingredientId])
   @@map("receiving_items")
+}
+
+// ─── ALLERGEN ──────────────────────────────────────────────
+
+model Allergen {
+  id   String @id @default(cuid())
+  name String @unique
+
+  ingredients IngredientAllergen[]
+
+  @@map("allergens")
+}
+
+// ─── INGREDIENT <-> ALLERGEN (join table) ──────────────────
+
+model IngredientAllergen {
+  ingredientId String @map("ingredient_id")
+  allergenId   String @map("allergen_id")
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  allergen   Allergen   @relation(fields: [allergenId], references: [id], onDelete: Cascade)
+
+  @@id([ingredientId, allergenId])
+  @@map("ingredient_allergens")
+}
+
+// ─── PREP TASK ─────────────────────────────────────────────
+
+enum PrepTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model PrepTask {
+  id           String         @id @default(cuid())
+  name         String
+  recipeId     String?        @map("recipe_id")
+  assignedToId String?        @map("assigned_to_id")
+  scheduledFor DateTime       @map("scheduled_for")
+  estimatedMin Int?           @map("estimated_min")
+  status       PrepTaskStatus @default(PENDING)
+  completedAt  DateTime?      @map("completed_at")
+  notes        String?
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  recipe     Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  assignedTo User?   @relation("PrepTask_AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([scheduledFor])
+  @@index([status])
+  @@index([assignedToId])
+  @@map("prep_tasks")
 }
