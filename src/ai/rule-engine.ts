@@ -117,14 +117,14 @@ export async function runRuleEngine(ingredientIds?: string[]) {
     }
   }
 
-  // Deduplicate: batch-fetch existing active alerts instead of N+1 sequential queries
+  // Deduplicate: batch-fetch existing alerts (read OR unread) to prevent re-creation
+  // of alerts that were already generated. Only dismissed alerts should allow re-creation.
   const candidateIngredientIds = [...new Set(candidates.map((c) => c.ingredientId))];
 
   const existingAlerts = candidateIngredientIds.length > 0
     ? await prisma.alert.findMany({
         where: {
           ingredientId: { in: candidateIngredientIds },
-          isRead: false,
           isDismissed: false,
         },
         select: { type: true, ingredientId: true },
