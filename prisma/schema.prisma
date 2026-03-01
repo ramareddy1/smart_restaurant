@@ -59,8 +59,10 @@ model User {
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  sessions   Session[]
+  restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  sessions        Session[]
+  purchaseOrders  PurchaseOrder[] @relation("PO_CreatedBy")
+  receivings      Receiving[]     @relation("Receiving_ReceivedBy")
 
   @@index([email])
   @@index([restaurantId])
@@ -95,8 +97,9 @@ model Supplier {
   notes        String?
   createdAt    DateTime      @default(now()) @map("created_at")
 
-  ingredients  Ingredient[]
-  transactions Transaction[]
+  ingredients    Ingredient[]
+  transactions   Transaction[]
+  purchaseOrders PurchaseOrder[]
 
   @@map("suppliers")
 }
@@ -116,10 +119,12 @@ model Ingredient {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  supplier          Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recipeIngredients RecipeIngredient[]
-  transactions      Transaction[]
-  alerts            Alert[]
+  supplier           Supplier?            @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients  RecipeIngredient[]
+  transactions       Transaction[]
+  alerts             Alert[]
+  purchaseOrderItems PurchaseOrderItem[]
+  receivingItems     ReceivingItem[]
 
   @@index([name])
   @@index([category])
@@ -217,6 +222,15 @@ enum TransactionType {
   ADJUSTMENT
 }
 
+enum WasteReason {
+  EXPIRED
+  SPOILED
+  OVERPRODUCTION
+  DROPPED
+  QUALITY_ISSUE
+  OTHER
+}
+
 model Transaction {
   id           String          @id @default(cuid())
   type         TransactionType
@@ -226,6 +240,7 @@ model Transaction {
   totalCost    Float?          @map("total_cost")
   supplierId   String?         @map("supplier_id")
   notes        String?
+  wasteReason  WasteReason?    @map("waste_reason")
   createdAt    DateTime        @default(now()) @map("created_at")
 
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
@@ -270,4 +285,88 @@ model Alert {
   @@index([isRead, isDismissed])
   @@index([createdAt])
   @@map("alerts")
+}
+
+// ─── PURCHASE ORDER ─────────────────────────────────────────
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  orderNumber  String              @unique @map("order_number")
+  supplierId   String              @map("supplier_id")
+  status       PurchaseOrderStatus @default(DRAFT)
+  orderDate    DateTime            @default(now()) @map("order_date")
+  expectedDate DateTime?           @map("expected_date")
+  totalCost    Float?              @map("total_cost")
+  notes        String?
+  createdById  String              @map("created_by_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy User                @relation("PO_CreatedBy", fields: [createdById], references: [id])
+  items     PurchaseOrderItem[]
+  receivings Receiving[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+  @@index([createdById])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String @id @default(cuid())
+  purchaseOrderId String @map("purchase_order_id")
+  ingredientId    String @map("ingredient_id")
+  quantityOrdered Float  @map("quantity_ordered")
+  unitCost        Float  @map("unit_cost")
+  quantityReceived Float @default(0) @map("quantity_received")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient    @relation(fields: [ingredientId], references: [id])
+
+  @@unique([purchaseOrderId, ingredientId])
+  @@index([ingredientId])
+  @@map("purchase_order_items")
+}
+
+// ─── RECEIVING ──────────────────────────────────────────────
+
+model Receiving {
+  id              String   @id @default(cuid())
+  purchaseOrderId String   @map("purchase_order_id")
+  receivedById    String   @map("received_by_id")
+  receivedAt      DateTime @default(now()) @map("received_at")
+  notes           String?
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy    User          @relation("Receiving_ReceivedBy", fields: [receivedById], references: [id])
+  items         ReceivingItem[]
+
+  @@index([purchaseOrderId])
+  @@index([receivedAt])
+  @@map("receivings")
+}
+
+model ReceivingItem {
+  id               String  @id @default(cuid())
+  receivingId      String  @map("receiving_id")
+  ingredientId     String  @map("ingredient_id")
+  quantityReceived Float   @map("quantity_received")
+  unitCost         Float   @map("unit_cost")
+  qualityNotes     String? @map("quality_notes")
+
+  receiving  Receiving  @relation(fields: [receivingId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@index([ingredientId])
+  @@map("receiving_items")
 }
