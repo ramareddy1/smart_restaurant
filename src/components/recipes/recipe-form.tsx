@@ -19,9 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { createRecipeSchema, type CreateRecipeInput } from "@/lib/validators";
-import { RECIPE_CATEGORIES, INGREDIENT_UNITS } from "@/lib/constants";
+import { RECIPE_CATEGORIES, INGREDIENT_UNITS, DIFFICULTY_LEVELS } from "@/lib/constants";
 import { useAllIngredients } from "@/hooks/use-ingredients";
 import { formatCurrency } from "@/lib/format";
 
@@ -34,6 +33,9 @@ interface RecipeFormProps {
     yieldQuantity: number;
     yieldUnit: string;
     instructions?: string | null;
+    prepTimeMin?: number | null;
+    cookTimeMin?: number | null;
+    difficultyLevel?: string | null;
     ingredients: Array<{
       ingredientId: string;
       quantity: number;
@@ -72,6 +74,9 @@ export function RecipeForm({ initialData }: RecipeFormProps) {
       yieldQuantity: initialData?.yieldQuantity ?? 1,
       yieldUnit: initialData?.yieldUnit ?? "serving",
       instructions: initialData?.instructions ?? "",
+      prepTimeMin: initialData?.prepTimeMin ?? undefined,
+      cookTimeMin: initialData?.cookTimeMin ?? undefined,
+      difficultyLevel: initialData?.difficultyLevel as "Easy" | "Medium" | "Hard" | undefined ?? undefined,
       ingredients: initialData?.ingredients ?? [],
     },
   });
@@ -143,6 +148,9 @@ export function RecipeForm({ initialData }: RecipeFormProps) {
           description: data.description || null,
           category: data.category || null,
           instructions: data.instructions || null,
+          prepTimeMin: data.prepTimeMin || null,
+          cookTimeMin: data.cookTimeMin || null,
+          difficultyLevel: data.difficultyLevel || null,
         }),
       });
 
@@ -217,6 +225,51 @@ export function RecipeForm({ initialData }: RecipeFormProps) {
                 {...register("yieldUnit")}
                 placeholder="e.g., servings"
               />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="prepTimeMin">Prep Time (min)</Label>
+              <Input
+                id="prepTimeMin"
+                type="number"
+                min="0"
+                {...register("prepTimeMin", { valueAsNumber: true })}
+                placeholder="e.g., 15"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cookTimeMin">Cook Time (min)</Label>
+              <Input
+                id="cookTimeMin"
+                type="number"
+                min="0"
+                {...register("cookTimeMin", { valueAsNumber: true })}
+                placeholder="e.g., 30"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="difficultyLevel">Difficulty</Label>
+              <Select
+                value={watch("difficultyLevel") ?? ""}
+                onValueChange={(v) =>
+                  setValue("difficultyLevel", (v || null) as "Easy" | "Medium" | "Hard" | null)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DIFFICULTY_LEVELS.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

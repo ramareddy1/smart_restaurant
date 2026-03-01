@@ -51,6 +51,9 @@ export const createRecipeSchema = z.object({
   yieldQuantity: z.number().min(0.1),
   yieldUnit: z.string(),
   instructions: z.string().optional().nullable(),
+  prepTimeMin: z.number().int().min(0).optional().nullable(),
+  cookTimeMin: z.number().int().min(0).optional().nullable(),
+  difficultyLevel: z.enum(["Easy", "Medium", "Hard"]).optional().nullable(),
   ingredients: z
     .array(recipeIngredientSchema)
     .min(1, "At least one ingredient is required"),
@@ -124,3 +127,35 @@ export const createUserSchema = z.object({
 export const updateUserSchema = createUserSchema.partial();
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+// ─── Phase 2: Chef ─────────────────────────
+
+export const updateIngredientAllergensSchema = z.object({
+  allergenIds: z.array(z.string()),
+});
+
+export type UpdateIngredientAllergensInput = z.infer<
+  typeof updateIngredientAllergensSchema
+>;
+
+export const createPrepTaskSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  recipeId: z.string().optional().nullable(),
+  assignedToId: z.string().optional().nullable(),
+  scheduledFor: z.string().min(1, "Scheduled date is required"),
+  estimatedMin: z.number().int().min(1).optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const updatePrepTaskSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  recipeId: z.string().optional().nullable(),
+  assignedToId: z.string().optional().nullable(),
+  scheduledFor: z.string().optional(),
+  estimatedMin: z.number().int().min(1).optional().nullable(),
+  status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]).optional(),
+  notes: z.string().optional().nullable(),
+});
+
+export type CreatePrepTaskInput = z.infer<typeof createPrepTaskSchema>;
+export type UpdatePrepTaskInput = z.infer<typeof updatePrepTaskSchema>;

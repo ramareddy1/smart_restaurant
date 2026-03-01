@@ -9,6 +9,9 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // Clean existing data (order matters for FK constraints)
+  await prisma.prepTask.deleteMany();
+  await prisma.ingredientAllergen.deleteMany();
+  await prisma.allergen.deleteMany();
   await prisma.session.deleteMany();
   await prisma.menuMenuItem.deleteMany();
   await prisma.recipeIngredient.deleteMany();
@@ -238,6 +241,9 @@ async function main() {
         category: "Main Course",
         yieldQuantity: 2,
         yieldUnit: "servings",
+        prepTimeMin: 30,
+        cookTimeMin: 15,
+        difficultyLevel: "Medium",
         instructions: "1. Prepare pizza dough with flour, water, yeast, and olive oil.\n2. Spread crushed tomatoes on dough.\n3. Add fresh mozzarella slices.\n4. Bake at 450°F for 12-15 minutes.\n5. Drizzle with olive oil and season with oregano.",
         ingredients: {
           create: [
@@ -257,6 +263,9 @@ async function main() {
         category: "Main Course",
         yieldQuantity: 1,
         yieldUnit: "serving",
+        prepTimeMin: 10,
+        cookTimeMin: 8,
+        difficultyLevel: "Medium",
         instructions: "1. Season salmon with salt, pepper, and lemon juice.\n2. Heat olive oil in pan over medium-high heat.\n3. Sear salmon skin-side down for 4 minutes.\n4. Flip and cook 3 more minutes.\n5. Add butter and lemon juice for sauce.",
         ingredients: {
           create: [
@@ -276,6 +285,9 @@ async function main() {
         category: "Salad",
         yieldQuantity: 2,
         yieldUnit: "servings",
+        prepTimeMin: 15,
+        cookTimeMin: 0,
+        difficultyLevel: "Easy",
         instructions: "1. Wash and chop lettuce.\n2. Make dressing with garlic, lemon, olive oil, and parmesan.\n3. Toss lettuce with dressing.\n4. Top with shaved parmesan and croutons.",
         ingredients: {
           create: [
@@ -295,6 +307,9 @@ async function main() {
         category: "Main Course",
         yieldQuantity: 2,
         yieldUnit: "servings",
+        prepTimeMin: 10,
+        cookTimeMin: 15,
+        difficultyLevel: "Medium",
         instructions: "1. Cook spaghetti al dente.\n2. Fry bacon until crispy.\n3. Mix eggs with parmesan.\n4. Toss hot pasta with bacon.\n5. Add egg mixture off heat, stirring rapidly.\n6. Season with black pepper.",
         ingredients: {
           create: [
@@ -313,6 +328,9 @@ async function main() {
         category: "Main Course",
         yieldQuantity: 2,
         yieldUnit: "servings",
+        prepTimeMin: 15,
+        cookTimeMin: 20,
+        difficultyLevel: "Medium",
         instructions: "1. Grill chicken breast, slice.\n2. Cook pasta al dente.\n3. Make Alfredo sauce with cream, butter, and parmesan.\n4. Combine pasta with sauce and chicken.",
         ingredients: {
           create: [
@@ -333,6 +351,9 @@ async function main() {
         category: "Appetizer",
         yieldQuantity: 2,
         yieldUnit: "servings",
+        prepTimeMin: 15,
+        cookTimeMin: 6,
+        difficultyLevel: "Easy",
         instructions: "1. Clean and devein shrimp.\n2. Sauté garlic in butter and olive oil.\n3. Add shrimp, cook 2-3 min per side.\n4. Squeeze lemon juice, season with pepper.",
         ingredients: {
           create: [
@@ -352,6 +373,9 @@ async function main() {
         category: "Salad",
         yieldQuantity: 1,
         yieldUnit: "serving",
+        prepTimeMin: 20,
+        cookTimeMin: 10,
+        difficultyLevel: "Easy",
         instructions: "1. Grill chicken breast, slice.\n2. Chop lettuce, bell peppers, onions, tomatoes.\n3. Toss with balsamic vinaigrette.\n4. Top with grilled chicken.",
         ingredients: {
           create: [
@@ -514,6 +538,113 @@ async function main() {
     ],
   });
 
+  // ─── Allergens (14 common) ──────────────
+
+  const allergenNames = [
+    "Milk", "Eggs", "Fish", "Crustacean Shellfish", "Tree Nuts",
+    "Peanuts", "Wheat", "Soybeans", "Sesame", "Mustard",
+    "Celery", "Lupin", "Mollusks", "Sulfites",
+  ];
+
+  const allergens = await Promise.all(
+    allergenNames.map((name) =>
+      prisma.allergen.create({ data: { name } })
+    )
+  );
+
+  const allergenMap = Object.fromEntries(
+    allergens.map((a) => [a.name, a.id])
+  );
+
+  // ─── Ingredient ↔ Allergen assignments ──
+
+  const ingredientAllergenData: Array<{ ingredientId: string; allergenNames: string[] }> = [
+    { ingredientId: mozzarella.id, allergenNames: ["Milk"] },
+    { ingredientId: heavyCream.id, allergenNames: ["Milk"] },
+    { ingredientId: butter.id, allergenNames: ["Milk"] },
+    { ingredientId: parmesan.id, allergenNames: ["Milk", "Eggs"] },
+    { ingredientId: salmon.id, allergenNames: ["Fish"] },
+    { ingredientId: shrimp.id, allergenNames: ["Crustacean Shellfish"] },
+    { ingredientId: pasta.id, allergenNames: ["Wheat", "Eggs"] },
+    { ingredientId: flour.id, allergenNames: ["Wheat"] },
+    { ingredientId: bacon.id, allergenNames: ["Sulfites"] },
+  ];
+
+  for (const entry of ingredientAllergenData) {
+    for (const aName of entry.allergenNames) {
+      await prisma.ingredientAllergen.create({
+        data: {
+          ingredientId: entry.ingredientId,
+          allergenId: allergenMap[aName],
+        },
+      });
+    }
+  }
+
+  // ─── Prep Tasks (sample for today + tomorrow) ──
+
+  const today = new Date();
+  today.setHours(8, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const chef = users[2]; // Sophie Laurent — HEAD_CHEF
+
+  await Promise.all([
+    prisma.prepTask.create({
+      data: {
+        name: "Prep pizza dough (20 portions)",
+        recipeId: recipes[0].id,
+        assignedToId: chef.id,
+        scheduledFor: today,
+        estimatedMin: 45,
+        status: "COMPLETED",
+        completedAt: new Date(today.getTime() + 50 * 60000),
+        notes: "Rest dough 2 hours before service",
+      },
+    }),
+    prisma.prepTask.create({
+      data: {
+        name: "Prep Caesar dressing (2L)",
+        recipeId: recipes[2].id,
+        assignedToId: chef.id,
+        scheduledFor: today,
+        estimatedMin: 15,
+        status: "IN_PROGRESS",
+      },
+    }),
+    prisma.prepTask.create({
+      data: {
+        name: "Portion salmon fillets (10 servings)",
+        recipeId: recipes[1].id,
+        assignedToId: chef.id,
+        scheduledFor: today,
+        estimatedMin: 20,
+        status: "PENDING",
+      },
+    }),
+    prisma.prepTask.create({
+      data: {
+        name: "Make Alfredo sauce batch",
+        recipeId: recipes[4].id,
+        assignedToId: chef.id,
+        scheduledFor: tomorrow,
+        estimatedMin: 25,
+        status: "PENDING",
+      },
+    }),
+    prisma.prepTask.create({
+      data: {
+        name: "Clean and devein shrimp (5kg)",
+        recipeId: recipes[5].id,
+        scheduledFor: tomorrow,
+        estimatedMin: 40,
+        status: "PENDING",
+        notes: "Double order for weekend rush",
+      },
+    }),
+  ]);
+
   console.log("\nSeed completed successfully!");
   console.log(`  Restaurant: 1 (${restaurant.name})`);
   console.log(`  Users: ${users.length}`);
@@ -523,6 +654,9 @@ async function main() {
   console.log(`  Menu Items: ${menuItems.length}`);
   console.log(`  Transactions: ${transactionData.length}`);
   console.log(`  Alerts: 4`);
+  console.log(`  Allergens: ${allergens.length}`);
+  console.log(`  Ingredient-Allergen links: ${ingredientAllergenData.reduce((s, e) => s + e.allergenNames.length, 0)}`);
+  console.log(`  Prep Tasks: 5`);
   console.log("\n  Login credentials:");
   console.log("  owner@bellavista.com (PIN: 0000) — Owner");
   console.log("  kitchen@bellavista.com (PIN: 1111) — Kitchen Manager");

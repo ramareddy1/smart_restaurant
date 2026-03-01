@@ -36,3 +36,16 @@ export function useRecipe(id: string | null) {
     mutate,
   };
 }
+
+export function useRecipeCost(id: string | null) {
+  const { data, error, isLoading } = useSWR(
+    id ? `/api/recipes/${id}/cost` : null,
+    fetcher
+  );
+
+  return {
+    cost: data,
+    isLoading,
+    isError: !!error,
+  };
+}

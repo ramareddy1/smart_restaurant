@@ -66,6 +66,33 @@ export const TRANSACTION_LOOKBACK_DAYS = 30;
 export const TRANSACTION_LOOKBACK_MS = TRANSACTION_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
 export const WASTE_RATIO_THRESHOLD = 0.2;
 
+// ─── Phase 2: Chef Constants ─────────────────────────────
+
+export const COMMON_ALLERGENS = [
+  "Milk",
+  "Eggs",
+  "Fish",
+  "Crustacean Shellfish",
+  "Tree Nuts",
+  "Peanuts",
+  "Wheat",
+  "Soybeans",
+  "Sesame",
+  "Mustard",
+  "Celery",
+  "Lupin",
+  "Mollusks",
+  "Sulfites",
+] as const;
+
+export const DIFFICULTY_LEVELS = ["Easy", "Medium", "Hard"] as const;
+
+export const PREP_TASK_STATUSES = [
+  { value: "PENDING", label: "Pending" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "COMPLETED", label: "Completed" },
+] as const;
+
 // ─── Dashboard / UI Constants ─────────────────────────────
 export const DASHBOARD_REFRESH_MS = 30_000;
 export const MAX_AI_CONTEXT_LENGTH = 20_000;
