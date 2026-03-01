@@ -100,3 +100,27 @@ export const createTransactionSchema = z.object({
 });
 
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
+
+// ─── Auth ──────────────────────────────
+
+export const loginSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  pin: z.string().optional().nullable(),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+
+export const createUserSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  name: z.string().min(1, "Name is required").max(100),
+  role: z.enum(["OWNER", "KITCHEN_MANAGER", "HEAD_CHEF", "SERVER", "HOST"]),
+  pin: z
+    .string()
+    .regex(/^\d{4}$/, "PIN must be exactly 4 digits")
+    .optional()
+    .nullable(),
+});
+
+export const updateUserSchema = createUserSchema.partial();
+
+export type CreateUserInput = z.infer<typeof createUserSchema>;
