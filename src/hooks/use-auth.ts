@@ -1,6 +1,10 @@
 import useSWR from "swr";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error("Not authenticated");
+    return r.json();
+  });
 
 export type AuthUser = {
   id: string;
