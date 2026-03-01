@@ -89,6 +89,30 @@ const staff: NavItem = {
   icon: Users,
 };
 
+const purchaseOrders: NavItem = {
+  title: "Purchase Orders",
+  href: "/purchase-orders",
+  icon: ClipboardList,
+};
+
+const wasteLog: NavItem = {
+  title: "Waste Log",
+  href: "/waste",
+  icon: Trash2,
+};
+
+const supplierPerf: NavItem = {
+  title: "Supplier Performance",
+  href: "/supplier-performance",
+  icon: BarChart3,
+};
+
+const kitchenDashboard: NavItem = {
+  title: "Kitchen Dashboard",
+  href: "/kitchen",
+  icon: Egg,
+};
+
 // ─── Per-role navigation configs ────────────────────────────────
 
 // Owner sees everything — they're the "single pane of glass" persona
@@ -102,6 +126,10 @@ const ownerNav: NavGroup[] = [
     items: [inventory, suppliers, recipes, menuItems, menus, transactions],
   },
   {
+    label: "Purchasing",
+    items: [kitchenDashboard, purchaseOrders, wasteLog, supplierPerf],
+  },
+  {
     label: "System",
     items: [alerts, staff],
   },
@@ -111,11 +139,15 @@ const ownerNav: NavGroup[] = [
 const kitchenManagerNav: NavGroup[] = [
   {
     label: "Overview",
-    items: [dashboard],
+    items: [dashboard, kitchenDashboard],
   },
   {
     label: "Kitchen Operations",
-    items: [inventory, suppliers, transactions],
+    items: [inventory, purchaseOrders, wasteLog],
+  },
+  {
+    label: "Suppliers",
+    items: [suppliers, supplierPerf],
   },
   {
     label: "System",
