@@ -79,7 +79,10 @@ export async function listIngredients(params: {
     const ingredientsWithSupplier = ingredientIds.length > 0
       ? await prisma.ingredient.findMany({
           where: { id: { in: ingredientIds } },
-          include: { supplier: true },
+          include: {
+            supplier: true,
+            allergens: { include: { allergen: true } },
+          },
           orderBy: { name: "asc" },
         })
       : [];
@@ -96,7 +99,10 @@ export async function listIngredients(params: {
   const [items, total] = await Promise.all([
     prisma.ingredient.findMany({
       where: baseWhere,
-      include: { supplier: true },
+      include: {
+        supplier: true,
+        allergens: { include: { allergen: true } },
+      },
       orderBy: { name: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,

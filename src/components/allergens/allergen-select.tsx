@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,22 +38,19 @@ export function AllergenSelect({
   } = useIngredientAllergens(open ? ingredientId : null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Sync selected state when current allergens load
-  if (!loadingCurrent && currentAllergens.length >= 0 && !initialized && open) {
-    setSelected(
-      new Set(currentAllergens.map((a: { id: string }) => a.id))
-    );
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (!loadingCurrent && open) {
+      setSelected(
+        new Set(currentAllergens.map((a: { id: string }) => a.id))
+      );
+    }
+  }, [loadingCurrent, open, currentAllergens]);
 
   // Reset when dialog closes
   const handleOpenChange = (value: boolean) => {
-    if (!value) {
-      setInitialized(false);
-    }
     onOpenChange(value);
   };
 
