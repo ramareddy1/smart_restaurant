@@ -9,6 +9,10 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // Clean existing data (order matters for FK constraints)
+  await prisma.payment.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.table.deleteMany();
   await prisma.prepTask.deleteMany();
   await prisma.ingredientAllergen.deleteMany();
   await prisma.allergen.deleteMany();
@@ -645,6 +649,147 @@ async function main() {
     }),
   ]);
 
+  // ─── Tables (10 restaurant tables) ─────
+
+  const server = users[3]; // Alex Rivera — SERVER
+
+  const tables = await Promise.all([
+    prisma.table.create({ data: { number: 1, name: "Window Left", seats: 2, status: "AVAILABLE", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 2, name: "Window Right", seats: 2, status: "AVAILABLE", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 3, name: "Center A", seats: 4, status: "OCCUPIED", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 4, name: "Center B", seats: 4, status: "OCCUPIED", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 5, name: "Center C", seats: 4, status: "AVAILABLE", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 6, name: "Booth 1", seats: 6, status: "AVAILABLE", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 7, name: "Booth 2", seats: 6, status: "RESERVED", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 8, name: "Patio A", seats: 4, status: "AVAILABLE", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 9, name: "Patio B", seats: 4, status: "CLEANING", restaurantId: restaurant.id } }),
+    prisma.table.create({ data: { number: 10, name: "Private Room", seats: 8, status: "AVAILABLE", restaurantId: restaurant.id } }),
+  ]);
+
+  // ─── Orders & Payments ────────────────
+
+  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+  // Order 1: PREPARING (Table 3) — sent to kitchen
+  const order1 = await prisma.order.create({
+    data: {
+      orderNumber: `ORD-${todayStr}-001`,
+      tableId: tables[2].id,
+      serverId: server.id,
+      status: "PREPARING",
+      guestCount: 3,
+      subtotal: 52.97,
+      tax: 4.50,
+      total: 57.47,
+      items: {
+        create: [
+          { menuItemId: menuItems[0].id, quantity: 1, unitPrice: 14.99, status: "PREPARING", specialInstructions: "Extra crispy", sentToKitchenAt: new Date() },
+          { menuItemId: menuItems[3].id, quantity: 1, unitPrice: 16.99, status: "PREPARING", sentToKitchenAt: new Date() },
+          { menuItemId: menuItems[2].id, quantity: 1, unitPrice: 10.99, status: "READY", sentToKitchenAt: new Date(), readyAt: new Date() },
+          { menuItemId: menuItems[7].id, quantity: 2, unitPrice: 3.99, status: "SERVED" },
+        ],
+      },
+    },
+  });
+
+  // Order 2: OPEN (Table 4) — not yet sent to kitchen
+  const order2 = await prisma.order.create({
+    data: {
+      orderNumber: `ORD-${todayStr}-002`,
+      tableId: tables[3].id,
+      serverId: server.id,
+      status: "OPEN",
+      guestCount: 2,
+      subtotal: 33.98,
+      tax: 2.89,
+      total: 36.87,
+      items: {
+        create: [
+          { menuItemId: menuItems[1].id, quantity: 1, unitPrice: 24.99, status: "PENDING" },
+          { menuItemId: menuItems[8].id, quantity: 1, unitPrice: 8.99, status: "PENDING" },
+        ],
+      },
+    },
+  });
+
+  // Order 3: CLOSED (Table 9, now cleaning) — completed earlier today
+  const closedAt = new Date(now.getTime() - 2 * 3600000); // 2 hours ago
+  const order3 = await prisma.order.create({
+    data: {
+      orderNumber: `ORD-${todayStr}-003`,
+      tableId: tables[8].id,
+      serverId: server.id,
+      status: "CLOSED",
+      guestCount: 4,
+      subtotal: 82.93,
+      tax: 7.05,
+      total: 89.98,
+      closedAt,
+      items: {
+        create: [
+          { menuItemId: menuItems[5].id, quantity: 1, unitPrice: 13.99, status: "SERVED", sentToKitchenAt: closedAt, readyAt: closedAt },
+          { menuItemId: menuItems[4].id, quantity: 2, unitPrice: 17.99, status: "SERVED", sentToKitchenAt: closedAt, readyAt: closedAt },
+          { menuItemId: menuItems[6].id, quantity: 1, unitPrice: 12.99, status: "SERVED", sentToKitchenAt: closedAt, readyAt: closedAt },
+          { menuItemId: menuItems[10].id, quantity: 2, unitPrice: 9.99, status: "SERVED" },
+        ],
+      },
+    },
+  });
+
+  // Payment for closed order (fully paid with tip)
+  await prisma.payment.create({
+    data: {
+      orderId: order3.id,
+      method: "CARD",
+      amount: 89.98,
+      tip: 15.00,
+      reference: "****4521",
+    },
+  });
+
+  // Order 4: Another CLOSED order from earlier
+  const closedAt2 = new Date(now.getTime() - 4 * 3600000);
+  const order4 = await prisma.order.create({
+    data: {
+      orderNumber: `ORD-${todayStr}-004`,
+      tableId: tables[0].id,
+      serverId: server.id,
+      status: "CLOSED",
+      guestCount: 2,
+      subtotal: 41.97,
+      tax: 3.57,
+      total: 45.54,
+      closedAt: closedAt2,
+      items: {
+        create: [
+          { menuItemId: menuItems[3].id, quantity: 1, unitPrice: 16.99, status: "SERVED", sentToKitchenAt: closedAt2, readyAt: closedAt2 },
+          { menuItemId: menuItems[2].id, quantity: 1, unitPrice: 10.99, status: "SERVED", sentToKitchenAt: closedAt2, readyAt: closedAt2 },
+          { menuItemId: menuItems[9].id, quantity: 2, unitPrice: 3.49, status: "SERVED" },
+          { menuItemId: menuItems[10].id, quantity: 1, unitPrice: 9.99, status: "SERVED" },
+        ],
+      },
+    },
+  });
+
+  // Split payment for order 4
+  await prisma.payment.create({
+    data: {
+      orderId: order4.id,
+      method: "CASH",
+      amount: 25.00,
+      tip: 5.00,
+    },
+  });
+  await prisma.payment.create({
+    data: {
+      orderId: order4.id,
+      method: "CARD",
+      amount: 20.54,
+      tip: 5.00,
+      reference: "****8832",
+    },
+  });
+
   console.log("\nSeed completed successfully!");
   console.log(`  Restaurant: 1 (${restaurant.name})`);
   console.log(`  Users: ${users.length}`);
@@ -657,6 +802,9 @@ async function main() {
   console.log(`  Allergens: ${allergens.length}`);
   console.log(`  Ingredient-Allergen links: ${ingredientAllergenData.reduce((s, e) => s + e.allergenNames.length, 0)}`);
   console.log(`  Prep Tasks: 5`);
+  console.log(`  Tables: ${tables.length}`);
+  console.log(`  Orders: 4 (2 active, 2 closed)`);
+  console.log(`  Payments: 3`);
   console.log("\n  Login credentials:");
   console.log("  owner@bellavista.com (PIN: 0000) — Owner");
   console.log("  kitchen@bellavista.com (PIN: 1111) — Kitchen Manager");

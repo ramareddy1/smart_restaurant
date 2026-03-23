@@ -15,6 +15,9 @@ import {
   Egg,
   Calendar,
   ShieldAlert,
+  Grid3X3,
+  Monitor,
+  ConciergeBell,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@generated/prisma";
@@ -138,6 +141,30 @@ const prepPlanning: NavItem = {
   icon: Calendar,
 };
 
+const tables: NavItem = {
+  title: "Tables",
+  href: "/tables",
+  icon: Grid3X3,
+};
+
+const orders: NavItem = {
+  title: "Orders",
+  href: "/orders",
+  icon: ShoppingCart,
+};
+
+const kitchenDisplay: NavItem = {
+  title: "Kitchen Display",
+  href: "/kitchen-display",
+  icon: Monitor,
+};
+
+const serverDashboard: NavItem = {
+  title: "Server Dashboard",
+  href: "/server",
+  icon: ConciergeBell,
+};
+
 // ─── Per-role navigation configs ────────────────────────────────
 
 // Owner sees everything — they're the "single pane of glass" persona
@@ -145,6 +172,10 @@ const ownerNav: NavGroup[] = [
   {
     label: "Overview",
     items: [dashboard],
+  },
+  {
+    label: "Front of House",
+    items: [serverDashboard, orders, tables, kitchenDisplay],
   },
   {
     label: "Operations",
@@ -172,7 +203,7 @@ const kitchenManagerNav: NavGroup[] = [
   },
   {
     label: "Kitchen Operations",
-    items: [inventory, purchaseOrders, wasteLog],
+    items: [inventory, purchaseOrders, wasteLog, kitchenDisplay],
   },
   {
     label: "Suppliers",
@@ -192,7 +223,7 @@ const headChefNav: NavGroup[] = [
   },
   {
     label: "Kitchen",
-    items: [recipes, menuItems, menus, allergens, menuEngineering, prepPlanning, inventory],
+    items: [recipes, menuItems, menus, allergens, menuEngineering, prepPlanning, inventory, kitchenDisplay],
   },
   {
     label: "System",
@@ -200,15 +231,19 @@ const headChefNav: NavGroup[] = [
   },
 ];
 
-// Server / FOH: menu & order-focused (orders come in Phase 3)
+// Server / FOH: menu & order-focused
 const serverNav: NavGroup[] = [
   {
     label: "Overview",
-    items: [dashboard],
+    items: [dashboard, serverDashboard],
   },
   {
     label: "Front of House",
-    items: [menus, menuItems],
+    items: [orders, tables, menus, menuItems],
+  },
+  {
+    label: "Kitchen",
+    items: [kitchenDisplay],
   },
   {
     label: "System",
@@ -224,7 +259,7 @@ const hostNav: NavGroup[] = [
   },
   {
     label: "Front of House",
-    items: [menus],
+    items: [tables, menus],
   },
   {
     label: "System",

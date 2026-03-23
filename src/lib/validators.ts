@@ -159,3 +159,66 @@ export const updatePrepTaskSchema = z.object({
 
 export type CreatePrepTaskInput = z.infer<typeof createPrepTaskSchema>;
 export type UpdatePrepTaskInput = z.infer<typeof updatePrepTaskSchema>;
+
+// ─── Phase 3: Server / Front-of-House ────
+
+export const createTableSchema = z.object({
+  number: z.number().int().min(1, "Table number must be at least 1"),
+  name: z.string().optional().nullable(),
+  seats: z.number().int().min(1, "Must have at least 1 seat"),
+});
+
+export const updateTableSchema = createTableSchema.partial().extend({
+  status: z.enum(["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"]).optional(),
+});
+
+export type CreateTableInput = z.infer<typeof createTableSchema>;
+export type UpdateTableInput = z.infer<typeof updateTableSchema>;
+
+export const createOrderSchema = z.object({
+  tableId: z.string().min(1, "Table is required"),
+  guestCount: z.number().int().min(1).optional(),
+  notes: z.string().optional().nullable(),
+  items: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1, "Menu item is required"),
+        quantity: z.number().int().min(1, "Quantity must be at least 1"),
+        specialInstructions: z.string().optional().nullable(),
+      })
+    )
+    .optional(),
+});
+
+export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+
+export const addOrderItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1, "Menu item is required"),
+        quantity: z.number().int().min(1, "Quantity must be at least 1"),
+        specialInstructions: z.string().optional().nullable(),
+      })
+    )
+    .min(1, "At least one item is required"),
+});
+
+export type AddOrderItemsInput = z.infer<typeof addOrderItemsSchema>;
+
+export const updateOrderItemStatusSchema = z.object({
+  status: z.enum(["PENDING", "PREPARING", "READY", "SERVED", "CANCELLED"]),
+});
+
+export type UpdateOrderItemStatusInput = z.infer<
+  typeof updateOrderItemStatusSchema
+>;
+
+export const createPaymentSchema = z.object({
+  method: z.enum(["CASH", "CARD", "DIGITAL"]),
+  amount: z.number().min(0.01, "Amount must be positive"),
+  tip: z.number().min(0).optional(),
+  reference: z.string().optional().nullable(),
+});
+
+export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;

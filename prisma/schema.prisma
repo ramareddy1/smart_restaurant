@@ -29,6 +29,7 @@ model Restaurant {
 
   users    User[]
   settings RestaurantSettings?
+  tables   Table[]
 
   @@map("restaurants")
 }
@@ -64,6 +65,7 @@ model User {
   purchaseOrders  PurchaseOrder[] @relation("PO_CreatedBy")
   receivings      Receiving[]     @relation("Receiving_ReceivedBy")
   prepTasks       PrepTask[]      @relation("PrepTask_AssignedTo")
+  orders          Order[]         @relation("Order_Server")
 
   @@index([email])
   @@index([restaurantId])
@@ -186,8 +188,9 @@ model MenuItem {
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  recipe Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
-  menus  MenuMenuItem[]
+  recipe     Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  menus      MenuMenuItem[]
+  orderItems OrderItem[]
 
   @@map("menu_items")
 }
@@ -428,4 +431,125 @@ model PrepTask {
   @@index([status])
   @@index([assignedToId])
   @@map("prep_tasks")
+}
+
+// ─── PHASE 3: FRONT-OF-HOUSE ─────────────────────────────────
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum OrderStatus {
+  OPEN
+  SENT_TO_KITCHEN
+  PREPARING
+  READY
+  SERVED
+  CLOSED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  DIGITAL
+}
+
+// ─── TABLE ──────────────────────────────────────────────────
+
+model Table {
+  id           String      @id @default(cuid())
+  number       Int         @unique
+  name         String?
+  seats        Int         @default(4)
+  status       TableStatus @default(AVAILABLE)
+  restaurantId String      @map("restaurant_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@index([status])
+  @@index([restaurantId])
+  @@map("tables")
+}
+
+// ─── ORDER ──────────────────────────────────────────────────
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique @map("order_number")
+  tableId     String      @map("table_id")
+  serverId    String      @map("server_id")
+  status      OrderStatus @default(OPEN)
+  guestCount  Int         @default(1) @map("guest_count")
+  notes       String?
+  subtotal    Float       @default(0)
+  tax         Float       @default(0)
+  total       Float       @default(0)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  closedAt    DateTime?   @map("closed_at")
+
+  table    Table       @relation(fields: [tableId], references: [id])
+  server   User        @relation("Order_Server", fields: [serverId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([tableId])
+  @@index([serverId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+// ─── ORDER ITEM ─────────────────────────────────────────────
+
+model OrderItem {
+  id                  String          @id @default(cuid())
+  orderId             String          @map("order_id")
+  menuItemId          String          @map("menu_item_id")
+  quantity            Int             @default(1)
+  unitPrice           Float           @map("unit_price")
+  specialInstructions String?         @map("special_instructions")
+  status              OrderItemStatus @default(PENDING)
+  sentToKitchenAt     DateTime?       @map("sent_to_kitchen_at")
+  readyAt             DateTime?       @map("ready_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@index([menuItemId])
+  @@index([status])
+  @@map("order_items")
+}
+
+// ─── PAYMENT ────────────────────────────────────────────────
+
+model Payment {
+  id        String        @id @default(cuid())
+  orderId   String        @map("order_id")
+  method    PaymentMethod
+  amount    Float
+  tip       Float         @default(0)
+  reference String?
+  paidAt    DateTime      @default(now()) @map("paid_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payments")
 }
